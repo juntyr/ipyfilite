@@ -47,7 +47,8 @@ def _setup_pyodide_file_upload_channel() -> str:
     js.ipyfilite = pyodide.ffi.to_js(
         {
             "channel": js.Reflect.construct(
-                js.BroadcastChannel, ["ipyfilite"]
+                js.BroadcastChannel,
+                pyodide.ffi.to_js(["ipyfilite"]),
             ),
             "session": str(uuid.uuid4()),
         },
