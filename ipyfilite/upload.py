@@ -69,21 +69,22 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
     Examples
     --------
 
-    >>> import ipylite_file_upload as widgets
-    >>> uploader = widgets.FileUpload()
+    >>> import ipyfilite
+    >>> uploader = ipyfilite.FileUploadLite()
+    >>> uploader
 
     # After displaying `uploader` and uploading a file:
 
     >>> uploader.value
-    [
-      {
-        'name': 'example.txt',
-        'type': 'text/plain',
-        'size': 36,
-        'last_modified': datetime.datetime(2020, 1, 9, 15, 58, 43, 321000, tzinfo=datetime.timezone.utc),
-        'path': '/uploads/e5091461-3952-42bb-9aa3-a5bb865ae832/example.txt'
-      }
-    ]
+    (
+        {
+            'name': 'example.txt',
+            'type': 'text/plain',
+            'size': 36,
+            'last_modified': datetime.datetime(2023, 5, 25, 9, 31, 1, 818000, tzinfo=datetime.timezone.utc),
+            'path': PosixPath('/uploads/68e7b75a-f3e3-40d4-aef9-98b5b4c842d3/example.txt')
+        },
+    )
     >>> with open(uploader.value[0].path, "rb") as file:
     >>>     print(file.read())
     b'This is the content of example.txt.\n'

@@ -85,13 +85,15 @@ export class FileUploadLiteView extends DOMWidgetView {
     });
 
     this.fileInput.addEventListener('change', () => {
-      const files: Array<IFileUploaded> = Array.from(this.fileInput.files ?? []).map((file: File) => {
+      const files: Array<IFileUploaded> = Array.from(
+        this.fileInput.files ?? []
+      ).map((file: File) => {
         return {
           name: file.name,
           type: file.type,
           size: file.size,
           last_modified: file.lastModified,
-          path: `/uploads/${uuidv4()}/${file.name}`
+          path: `/uploads/${uuidv4()}/${file.name}`,
         };
       });
 
@@ -143,7 +145,11 @@ export class FileUploadLiteView extends DOMWidgetView {
   }
 
   set_button_style(): void {
-    this.set_mapped_classes(FileUploadLiteView.class_map, 'button_style', this.el);
+    this.set_mapped_classes(
+      FileUploadLiteView.class_map,
+      'button_style',
+      this.el
+    );
   }
 
   static class_map = {
