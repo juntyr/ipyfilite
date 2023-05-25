@@ -54,5 +54,6 @@ def _setup_pyodide_file_upload_channel() -> str:
         dict_converter=js.Object.fromEntries,
         create_pyproxies=False,
     )
+    js.ipyfilite.channel.onmessage = files_upload_callback
 
     return js.ipyfilite.session
