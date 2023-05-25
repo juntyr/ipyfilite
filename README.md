@@ -1,8 +1,17 @@
 
-# ipyfilite
+# ipyfilite &emsp; [![PyPi]][pypi-url] [![NPM]][npm-url] [![License BSD-3-Clause]][bsd-3] [![CI Status]][ci-status]
 
-[![Build Status](https://travis-ci.org/juntyr/ipyfilite.svg?branch=master)](https://travis-ci.org/juntyr/ipyfilite)
-[![codecov](https://codecov.io/gh/juntyr/ipyfilite/branch/master/graph/badge.svg)](https://codecov.io/gh/juntyr/ipyfilite)
+[PyPI]: https://img.shields.io/pypi/v/ipyfilite
+[pypi-url]: https://pypi.org/project/ipyfilite
+
+[NPM]: https://img.shields.io/npm/v/ipyfilite
+[npm-url]: https://www.npmjs.com/package/ipyfilite
+
+[License BSD-3-Clause]: https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
+[bsd-3]: https://opensource.org/licenses/BSD-3-Clause
+
+[CI Status]: https://img.shields.io/github/actions/workflow/status/juntyr/phepy/ci.yml?branch=main&label=CI
+[ci-status]: https://github.com/juntyr/phepy/actions/workflows/ci.yml?query=branch%3Amain
 
 
 File upload widget specifically for Pyodide kernels running in JupyterLite. Uploaded files are not loaded into memory but mounted as read-only files in a new WORKERFS.
