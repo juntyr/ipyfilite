@@ -13,25 +13,31 @@ Represents a file upload button.
 import datetime as dt
 from pathlib import Path
 
-from traitlets import (
-    observe, default, Unicode, Dict, Int, Bool, Bytes, CaselessStrEnum, Bunch
+from ipywidgets import (
+    ButtonStyle,
+    TypedTuple,
+    ValueWidget,
+    register,
+    widget_serialization,
 )
-
-from ipywidgets import ValueWidget, ButtonStyle, TypedTuple, register, widget_serialization
-from ipywidgets.widgets.widget_description import DescriptionWidget
 from ipywidgets.widgets.trait_types import InstanceDict
+from ipywidgets.widgets.widget_description import DescriptionWidget
+from traitlets import Bool, Bunch, CaselessStrEnum, Dict, Unicode, default
 
 from ._frontend import module_name, module_version
+from ._pyodide import _setup_pyodide_file_upload_channel
+
+__session__ = _setup_pyodide_file_upload_channel()
+
 
 def _deserialize_single_file(js):
     uploaded_file = Bunch()
-    for attribute in ['name', 'type', 'size']:
+    for attribute in ["name", "type", "size"]:
         uploaded_file[attribute] = js[attribute]
-    uploaded_file['last_modified'] = dt.datetime.fromtimestamp(
-        js['last_modified'] / 1000,
-        tz=dt.timezone.utc
+    uploaded_file["last_modified"] = dt.datetime.fromtimestamp(
+        js["last_modified"] / 1000, tz=dt.timezone.utc
     )
-    uploaded_file['path'] = Path(js['path'])
+    uploaded_file["path"] = Path(js["path"])
     return uploaded_file
 
 
@@ -41,10 +47,12 @@ def _deserialize_value(js, _):
 
 def _serialize_single_file(uploaded_file):
     js = {}
-    for attribute in ['name', 'type', 'size']:
+    for attribute in ["name", "type", "size"]:
         js[attribute] = uploaded_file[attribute]
-    js['last_modified'] = int(uploaded_file['last_modified'].timestamp() * 1000)
-    js['path'] = str(uploaded_file['path'])
+    js["last_modified"] = int(
+        uploaded_file["last_modified"].timestamp() * 1000
+    )
+    js["path"] = str(uploaded_file["path"])
     return js
 
 
@@ -53,9 +61,10 @@ def _serialize_value(value, _):
 
 
 _value_serialization = {
-    'from_json': _deserialize_value,
-    'to_json': _serialize_value
+    "from_json": _deserialize_value,
+    "to_json": _serialize_value,
 }
+
 
 @register
 class FileUploadLite(DescriptionWidget, ValueWidget):
@@ -81,8 +90,12 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
             'name': 'example.txt',
             'type': 'text/plain',
             'size': 36,
-            'last_modified': datetime.datetime(2023, 5, 25, 9, 31, 1, 818000, tzinfo=datetime.timezone.utc),
-            'path': PosixPath('/uploads/68e7b75a-f3e3-40d4-aef9-98b5b4c842d3/example.txt')
+            'last_modified': datetime.datetime(
+                2023, 5, 25, 9, 31, 1, 818000, tzinfo=datetime.timezone.utc,
+            ),
+            'path': PosixPath(
+                '/uploads/68e7b75a-f3e3-40d4-aef9-98b5b4c842d3/example.txt',
+            ),
         },
     )
     >>> with open(uploader.value[0].path, "rb") as file:
@@ -125,32 +138,45 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
     """
 
     # Name of the widget model class in front-end
-    _model_name = Unicode('FileUploadLiteModel').tag(sync=True)
+    _model_name = Unicode("FileUploadLiteModel").tag(sync=True)
     _model_module = Unicode(module_name).tag(sync=True)
     _model_module_version = Unicode(module_version).tag(sync=True)
 
     # Name of the widget view class in front-end
-    _view_name = Unicode('FileUploadLiteView').tag(sync=True)
+    _view_name = Unicode("FileUploadLiteView").tag(sync=True)
     _view_module = Unicode(module_name).tag(sync=True)
     _view_module_version = Unicode(module_version).tag(sync=True)
 
-    # Widget specific propertyies.
-    # Widget properties are defined as traitlets. Any property tagged with `sync=True`
-    # is automatically synced to the frontend *any* time it changes in Python.
-    # It is synced back to Python from the frontend *any* time the model is touched.
-    accept = Unicode(help='File types to accept, empty string for all').tag(sync=True)
-    multiple = Bool(help='If True, allow for multiple files upload').tag(sync=True)
-    disabled = Bool(help='Enable or disable button').tag(sync=True)
-    icon = Unicode('upload', help="Font-awesome icon name, without the 'fa-' prefix.").tag(sync=True)
+    _session = Unicode(__session__, read_only=True).tag(sync=True)
+
+    # Widget specific propertyies, which are defined as traitlets.
+    # Any property tagged with `sync=True` is automatically synced to the
+    # frontend *any* time it changes in Python. It is synced back to Python
+    # from the frontend *any* time the model is touched.
+    accept = Unicode(help="File types to accept, empty string for all").tag(
+        sync=True
+    )
+    multiple = Bool(help="If True, allow for multiple files upload").tag(
+        sync=True
+    )
+    disabled = Bool(help="Enable or disable button").tag(sync=True)
+    icon = Unicode(
+        "upload", help="Font-awesome icon name, without the 'fa-' prefix."
+    ).tag(sync=True)
     button_style = CaselessStrEnum(
-        values=['primary', 'success', 'info', 'warning', 'danger', ''], default_value='',
-        help='Use a predefined styling for the button.',
+        values=["primary", "success", "info", "warning", "danger", ""],
+        default_value="",
+        help="Use a predefined styling for the button.",
     ).tag(sync=True)
     style = InstanceDict(ButtonStyle).tag(sync=True, **widget_serialization)
-    value = TypedTuple(Dict(), read_only=True, help='The file upload value').tag(
-        sync=True, echo_update=False, **_value_serialization,
+    value = TypedTuple(
+        Dict(), read_only=True, help="The file upload value"
+    ).tag(
+        sync=True,
+        echo_update=False,
+        **_value_serialization,
     )
 
-    @default('description')
+    @default("description")
     def _default_description(self):
-        return 'Upload'
+        return "Upload"

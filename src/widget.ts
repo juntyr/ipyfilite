@@ -31,6 +31,7 @@ export class FileUploadLiteModel extends DOMWidgetModel {
       _view_name: FileUploadLiteModel.view_name,
       _view_module: FileUploadLiteModel.view_module,
       _view_module_version: FileUploadLiteModel.view_module_version,
+      _session: uuidv4(),
       accept: '',
       description: 'Upload',
       disabled: false,
@@ -102,6 +103,7 @@ export class FileUploadLiteView extends DOMWidgetView {
       new BroadcastChannel('ipyfilite').postMessage({
         files: this.fileInput.files,
         uuid,
+        session: this.model.get('_session'),
       });
 
       this.model.set({

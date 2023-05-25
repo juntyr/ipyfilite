@@ -53,6 +53,7 @@ test = [
     "pytest-cov",
     "pytest>=6.0",
 ]
+dev = ["black", "isort", "jupyterlab", "pyproject-flake8"]
 
 [project.urls]
 Homepage = "https://github.com/juntyr/ipyfilite"
@@ -110,3 +111,15 @@ regex = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)((?P<channel>a|b|rc|
 [tool.tbump.git]
 message_template = "Bump to {new_version}"
 tag_template = "v{new_version}"
+
+[tool.black]
+target-version = ['py37']
+line-length = 79
+preview = true
+
+[tool.isort]
+py_version = 37
+profile = "black"
+line_length = 79
+
+[tool.flake8]

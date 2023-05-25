@@ -4,8 +4,6 @@
 # Copyright (c) Juniper Tyree.
 # Distributed under the terms of the Modified BSD License.
 
-import pytest
-
 from ..upload import FileUploadLite
 
 
