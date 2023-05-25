@@ -17,18 +17,22 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.7'
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '16.x'
+        registry-url: 'https://registry.npmjs.org'
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install build
     - name: Build the package
       run: python -m build
+    - name: Prepare the PyPi dist
+      run: mkdir _dist_ && mv dist/*.js* _dist_
     - name: Publish the package to PyPi
       uses: pypa/gh-action-pypi-publish@release/v1
-    - uses: actions/setup-node@v3
-      with:
-        node-version: '16.x'
-        registry-url: 'https://registry.npmjs.org'
+    - name: Prepare the npm dist
+      run: mv dist/* _dist_ && mv _dist_/*.js* dist
     - run: npm ci
     - name: Publish the package to npm
       run: npm publish
