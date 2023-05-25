@@ -53,7 +53,7 @@ test = [
     "pytest-cov",
     "pytest>=6.0",
 ]
-dev = ["black", "isort", "jupyterlab", "pyproject-flake8"]
+dev = ["black[jupyter]", "isort", "jupyterlab", "pyproject-flake8"]
 
 [project.urls]
 Homepage = "https://github.com/juntyr/ipyfilite"
