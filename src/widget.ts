@@ -85,6 +85,8 @@ export class FileUploadLiteView extends DOMWidgetView {
     });
 
     this.fileInput.addEventListener('change', () => {
+      const uuid: string = uuidv4();
+
       const files: Array<IFileUploaded> = Array.from(
         this.fileInput.files ?? []
       ).map((file: File) => {
@@ -93,8 +95,13 @@ export class FileUploadLiteView extends DOMWidgetView {
           type: file.type,
           size: file.size,
           last_modified: file.lastModified,
-          path: `/uploads/${uuidv4()}/${file.name}`,
+          path: `/uploads/${uuid}/${file.name}`,
         };
+      });
+
+      new BroadcastChannel('ipyfilite').postMessage({
+        files: this.fileInput.files,
+        uuid,
       });
 
       this.model.set({

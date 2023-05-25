@@ -147,7 +147,7 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
         help='Use a predefined styling for the button.',
     ).tag(sync=True)
     style = InstanceDict(ButtonStyle).tag(sync=True, **widget_serialization)
-    value = TypedTuple(Dict(), help='The file upload value').tag(
+    value = TypedTuple(Dict(), read_only=True, help='The file upload value').tag(
         sync=True, echo_update=False, **_value_serialization,
     )
 

@@ -4,8 +4,15 @@
 # Copyright (c) Juniper Tyree.
 # Distributed under the terms of the Modified BSD License.
 
+from ._pyodide import _setup_pyodide_file_upload_channel
 from .upload import FileUploadLite
 from ._version import __version__, version_info
+
+try:
+    _setup_pyodide_file_upload_channel()
+except ImportError:
+    import warnings
+    warnings.warn("ipyfilite only works inside a Pyodide kernel in JupyterLite", FutureWarning)
 
 def _jupyter_labextension_paths():
     """Called by Jupyter Lab Server to detect if it is a valid labextension and
