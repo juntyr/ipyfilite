@@ -5,8 +5,8 @@ import {
   DOMWidgetModel,
   DOMWidgetView,
   ISerializers,
+  uuid as uuidv4,
 } from '@jupyter-widgets/base';
-import { v4 as uuidv4 } from 'uuid';
 
 import { MODULE_NAME, MODULE_VERSION } from './version';
 
