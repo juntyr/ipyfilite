@@ -4,6 +4,7 @@
 # Copyright (c) Juniper Tyree.
 # Distributed under the terms of the Modified BSD License.
 
+from . import _manager  # noqa: F401
 from ._version import __version__, version_info  # noqa: F401
 from .upload import FileUploadLite  # noqa: F401
 

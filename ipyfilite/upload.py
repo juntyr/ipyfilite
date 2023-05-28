@@ -25,9 +25,7 @@ from ipywidgets.widgets.widget_description import DescriptionWidget
 from traitlets import Bool, Bunch, CaselessStrEnum, Dict, Unicode, default
 
 from ._frontend import module_name, module_version
-from ._pyodide import _setup_pyodide_file_upload_channel
-
-__session__ = _setup_pyodide_file_upload_channel()
+from ._manager import IpyfiliteManager
 
 
 def _deserialize_single_file(js):
@@ -147,7 +145,9 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
     _view_module = Unicode(module_name).tag(sync=True)
     _view_module_version = Unicode(module_version).tag(sync=True)
 
-    _session = Unicode(__session__, read_only=True).tag(sync=True)
+    _session = Unicode(
+        str(IpyfiliteManager.instance().session), read_only=True
+    ).tag(sync=True)
 
     # Widget specific propertyies, which are defined as traitlets.
     # Any property tagged with `sync=True` is automatically synced to the

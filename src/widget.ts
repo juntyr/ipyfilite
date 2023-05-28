@@ -100,7 +100,7 @@ export class FileUploadLiteView extends DOMWidgetView {
         };
       });
 
-      new BroadcastChannel('ipyfilite').postMessage({
+      Private.getBroadcastChannel().postMessage({
         files: this.fileInput.files,
         uuid,
         session: this.model.get('_session'),
@@ -168,4 +168,12 @@ export class FileUploadLiteView extends DOMWidgetView {
     warning: ['mod-warning'],
     danger: ['mod-danger'],
   };
+}
+
+namespace Private {
+  const _channel = new BroadcastChannel('ipyfilite');
+
+  export function getBroadcastChannel(): BroadcastChannel {
+    return _channel;
+  }
 }
