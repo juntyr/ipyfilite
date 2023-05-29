@@ -132,7 +132,7 @@ def _get_content_length_accept_ranges_pyodide(
     content_length = int(content_length) if content_length else None
 
     accept_ranges = xhr.getResponseHeader("accept-ranges")
-    accept_ranges = accept_ranges.lower() if content_length else None
+    accept_ranges = accept_ranges.lower() if accept_ranges else None
 
     return (content_length, accept_ranges)
 
@@ -147,7 +147,7 @@ def _get_content_length_accept_ranges_urllib(
         content_length = int(content_length) if content_length else None
 
         accept_ranges = response.getheader("accept-ranges", None)
-        accept_ranges = accept_ranges.lower() if content_length else None
+        accept_ranges = accept_ranges.lower() if accept_ranges else None
 
     return (content_length, accept_ranges)
 
