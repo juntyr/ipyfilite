@@ -90,3 +90,8 @@ pip install tbump
 tbump <new-version>
 ```
 
+## Funding
+
+`ipyfilite` has been developed as part of [ESiWACE3](https://www.esiwace.eu), the third phase of the Centre of Excellence in Simulation of Weather and Climate in Europe.
+
+Funded by the European Union. This work has received funding from the European High Performance Computing Joint Undertaking (JU) under grant agreement No 101093054.
