@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 import warnings
 from pathlib import Path
@@ -95,8 +96,10 @@ class IpyfiliteManager(SingletonConfigurable):
                     name=file.name,
                     type=file.type,
                     size=file.size,
-                    last_modified=file.lastModified,
-                    path=str(upload_path / file.name),
+                    last_modified=dt.datetime.fromtimestamp(
+                        file.lastModified / 1000, tz=dt.timezone.utc
+                    ),
+                    path=upload_path / file.name,
                 )
                 for file in event.data.files
             ],
