@@ -10,6 +10,7 @@ FileUpload class.
 Represents a file upload button.
 """
 
+import asyncio
 import datetime as dt
 from pathlib import Path
 
@@ -181,5 +182,21 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
     def _default_description(self):
         return "Upload"
 
-    async def next_value(self):
-        return await IpyfiliteManager.instance().wait_for_upload_value(self)
+    def __init__(self):
+        super().__init__()
+        IpyfiliteManager.instance().register_upload(self)
+
+    async def request(self):
+        from IPython.display import display
+
+        display(self)
+
+        future = asyncio.Future()
+        self.observe(future.set_result, "value")
+        await future
+
+        return self.value
+
+    def __del__(self):
+        IpyfiliteManager.instance().unregister_upload(self)
+        super().__del__()

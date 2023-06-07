@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import uuid
 import warnings
 from pathlib import Path
 
 from IPython import get_ipython
-from traitlets import Instance
+from traitlets import Bunch, Instance
 from traitlets.config import SingletonConfigurable
 
 
@@ -15,7 +14,7 @@ class IpyfiliteManager(SingletonConfigurable):
         super().__init__(**kwargs)
 
         self._session = uuid.uuid4()
-        self._upload_futures = dict()
+        self._upload_widgets = dict()
 
         try:
             import js  # noqa: F401
@@ -50,15 +49,11 @@ class IpyfiliteManager(SingletonConfigurable):
 
         return manager
 
-    async def wait_for_upload_value(self, widget):
-        widget_id = widget._model_id
+    def register_upload(self, widget):
+        self._upload_widgets[widget._model_id] = widget
 
-        if widget_id not in self._upload_futures:
-            self._upload_futures[widget_id] = []
-
-        future = asyncio.Future()
-        self._upload_futures[widget_id].append(future)
-        return await future
+    def unregister_upload(self, widget):
+        self._upload_widgets.pop(widget._model_id, None)
 
     def _on_file_upload(self, event):
         import js
@@ -77,6 +72,9 @@ class IpyfiliteManager(SingletonConfigurable):
         if event.data.session != str(self.session):
             return
 
+        if event.data.widget not in self._upload_widgets:
+            return
+
         upload_path = Path("/uploads") / event.data.uuid
         upload_path.mkdir(parents=True, exist_ok=False)
 
@@ -90,20 +88,16 @@ class IpyfiliteManager(SingletonConfigurable):
             str(upload_path),
         )
 
-        futures = self._upload_futures.get(event.data.widget, [])
-
-        value = [
-            {
-                "name": file.name,
-                "type": file.type,
-                "size": file.size,
-                "last_modified": file.lastModified,
-                "path": str(upload_path / file.name),
-            }
-            for file in event.data.files
-        ]
-
-        for future in futures:
-            future.set_result(value)
-
-        self._upload_futures.pop(event.data.widget, None)
+        self._upload_widgets[event.data.widget].set_trait(
+            "value",
+            [
+                Bunch(
+                    name=file.name,
+                    type=file.type,
+                    size=file.size,
+                    last_modified=file.lastModified,
+                    path=str(upload_path / file.name),
+                )
+                for file in event.data.files
+            ],
+        )
