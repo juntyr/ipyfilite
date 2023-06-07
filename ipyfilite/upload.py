@@ -180,3 +180,6 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
     @default("description")
     def _default_description(self):
         return "Upload"
+
+    async def next_value(self):
+        return await IpyfiliteManager.instance().wait_for_upload_value(self)

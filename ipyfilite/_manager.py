@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 import warnings
 from pathlib import Path
@@ -14,6 +15,7 @@ class IpyfiliteManager(SingletonConfigurable):
         super().__init__(**kwargs)
 
         self._session = uuid.uuid4()
+        self._upload_futures = dict()
 
         try:
             import js  # noqa: F401
@@ -48,6 +50,16 @@ class IpyfiliteManager(SingletonConfigurable):
 
         return manager
 
+    async def wait_for_upload_value(self, widget):
+        widget_id = widget._model_id
+
+        if widget_id not in self._upload_futures:
+            self._upload_futures[widget_id] = []
+
+        future = asyncio.Future()
+        self._upload_futures[widget_id].append(future)
+        return await future
+
     def _on_file_upload(self, event):
         import js
         import pyodide
@@ -58,6 +70,7 @@ class IpyfiliteManager(SingletonConfigurable):
             or not getattr(event.data, "files", None)
             or not getattr(event.data, "uuid", None)
             or not getattr(event.data, "session", None)
+            or not getattr(event.data, "widget", None)
         ):
             return
 
@@ -76,3 +89,21 @@ class IpyfiliteManager(SingletonConfigurable):
             ),
             str(upload_path),
         )
+
+        futures = self._upload_futures.get(event.data.widget, [])
+
+        value = [
+            {
+                "name": file.name,
+                "type": file.type,
+                "size": file.size,
+                "last_modified": file.lastModified,
+                "path": str(upload_path / file.name),
+            }
+            for file in event.data.files
+        ]
+
+        for future in futures:
+            future.set_result(value)
+
+        self._upload_futures.pop(event.data.widget, None)

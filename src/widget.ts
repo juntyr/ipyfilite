@@ -104,6 +104,7 @@ export class FileUploadLiteView extends DOMWidgetView {
         files: this.fileInput.files,
         uuid,
         session: this.model.get('_session'),
+        widget: this.model.model_id,
       });
 
       this.model.set({
