@@ -194,6 +194,7 @@ class FileUploadLite(DescriptionWidget, ValueWidget):
         future = asyncio.Future()
         self.observe(future.set_result, "value")
         await future
+        self.unobserve(future.set_result, "value")
 
         return self.value
 
