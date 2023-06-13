@@ -101,6 +101,7 @@ export class FileUploadLiteView extends DOMWidgetView {
       });
 
       Private.getBroadcastChannel().postMessage({
+        kind: 'upload',
         files: this.fileInput.files,
         uuid,
         session: this.model.get('_session'),
@@ -177,4 +178,81 @@ namespace Private {
   export function getBroadcastChannel(): BroadcastChannel {
     return _channel;
   }
+
+  /* eslint-disable no-inner-declarations */
+  function _createUserDownload(name: string, chunks: [Uint8Array]) {
+    const download = document.createElement('a');
+    download.href = URL.createObjectURL(new Blob(chunks));
+    download.download = name;
+    download.click();
+  }
+
+  const _downloads = new Map();
+
+  _channel.onmessage = function (event) {
+    if (!event.data || !event.data.kind) {
+      return;
+    }
+
+    if (event.data.kind === 'download-open') {
+      if (_downloads.has(event.data.uuid)) {
+        console.warn(`Download stream for '${event.data.uuid}' already open.`);
+        return;
+      }
+
+      _downloads.set(event.data.uuid, {
+        name: event.data.name,
+        chunks: [],
+        size: 0,
+        segment: 0,
+      });
+    } else if (event.data.kind === 'download-chunk') {
+      if (!_downloads.has(event.data.uuid)) {
+        console.warn(
+          `No download stream for '${event.data.uuid}' is open to write to.`
+        );
+        return;
+      }
+
+      const download = _downloads.get(event.data.uuid);
+      const chunk = new Uint8Array(event.data.chunk);
+
+      download.chunks.push(chunk);
+      download.size += chunk.length;
+
+      if (download.size >= 1024 * 1024 * 256) {
+        download.segment += 1;
+        _createUserDownload(
+          `${download.name}.${download.segment.toString().padStart(3, '0')}`,
+          download.chunks
+        );
+        download.chunks = [];
+        download.size = 0;
+      }
+    } else if (event.data.kind === 'download-close') {
+      if (!_downloads.has(event.data.uuid)) {
+        console.warn(
+          `No download stream for '${event.data.uuid}' is open to close.`
+        );
+        return;
+      }
+
+      const download = _downloads.get(event.data.uuid);
+      _downloads.delete(event.data.uuid);
+
+      if (download.segment > 0 && download.chunks.length === 0) {
+        return; // segemented download with no more data
+      }
+
+      if (download.segment > 0) {
+        download.segment += 1;
+        _createUserDownload(
+          `${download.name}.${download.segment.toString().padStart(3, '0')}`,
+          download.chunks
+        );
+      } else {
+        _createUserDownload(download.name, download.chunks);
+      }
+    }
+  };
 }

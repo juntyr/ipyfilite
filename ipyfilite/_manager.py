@@ -30,6 +30,21 @@ class IpyfiliteManager(SingletonConfigurable):
             self._channel = js.BroadcastChannel.new("ipyfilite")
             self._channel.onmessage = self._on_file_upload
 
+            self._download_fs = pyodide.code.run_js(
+                (Path(__file__).parent / "download" / "fs.js").read_text()
+            )
+            self._download_fs._session = str(self._session)
+            self._download_fs._channel = self._channel
+            self._download_fs._pyodide = pyodide_js
+
+            if Path("/download").exists():
+                pyodide_js.FS.unmount("/download")
+            else:
+                Path("/download").mkdir()
+            pyodide_js.FS.mount(self._download_fs, None, "/download")
+
+            self._download_root = pyodide_js.FS.lookupPath("/download").node
+
     @property
     def session(self) -> uuid.UUID:
         return self._session
@@ -63,11 +78,15 @@ class IpyfiliteManager(SingletonConfigurable):
 
         if (
             not getattr(event, "data", None)
+            or not getattr(event.data, "kind", None)
             or not getattr(event.data, "files", None)
             or not getattr(event.data, "uuid", None)
             or not getattr(event.data, "session", None)
             or not getattr(event.data, "widget", None)
         ):
+            return
+
+        if event.data.kind != "upload":
             return
 
         if event.data.session != str(self.session):
@@ -104,3 +123,12 @@ class IpyfiliteManager(SingletonConfigurable):
                 for file in event.data.files
             ],
         )
+
+    def register_download(self, uuid: str, name: str) -> Path:
+        path = self._download_fs.create_download(
+            self._download_root, uuid, name
+        )
+        return Path(path)
+
+    def unregister_download(self, uuid: str):
+        self._download_fs.close_download(self._download_root, uuid)
