@@ -185,11 +185,22 @@ namespace Private {
     download.rel = 'noopener';
     download.href = URL.createObjectURL(new Blob(chunks));
     download.download = name;
-    setTimeout(() => URL.revokeObjectURL(download.href), 40 * 1000);
-    setTimeout(() => download.dispatchEvent(new MouseEvent('click')), 0);
+    _download_queue.push(download);
   }
 
   const _downloads = new Map();
+  const _download_queue: HTMLAnchorElement[] = [];
+
+  setInterval(() => {
+    const download = _download_queue.shift();
+
+    if (download === undefined) {
+      return;
+    }
+
+    setTimeout(() => URL.revokeObjectURL(download.href), 40 * 1000);
+    setTimeout(() => download.dispatchEvent(new MouseEvent('click')), 0);
+  }, 1000);
 
   _channel.onmessage = function (event) {
     if (!event.data || !event.data.kind) {
