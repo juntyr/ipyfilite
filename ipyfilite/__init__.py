@@ -6,6 +6,7 @@
 
 from . import _manager  # noqa: F401
 from ._version import __version__, version_info  # noqa: F401
+from .download import FileDownloadPathLite  # noqa: F401
 from .http import HTTPFileIO  # noqa: F401
 from .upload import FileUploadLite  # noqa: F401
 

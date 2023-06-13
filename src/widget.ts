@@ -182,9 +182,11 @@ namespace Private {
   /* eslint-disable no-inner-declarations */
   function _createUserDownload(name: string, chunks: [Uint8Array]) {
     const download = document.createElement('a');
+    download.rel = 'noopener';
     download.href = URL.createObjectURL(new Blob(chunks));
     download.download = name;
-    download.click();
+    setTimeout(() => URL.revokeObjectURL(download.href), 40 * 1000);
+    setTimeout(() => download.dispatchEvent(new MouseEvent('click')), 0);
   }
 
   const _downloads = new Map();
