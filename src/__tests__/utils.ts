@@ -118,21 +118,20 @@ export function createTestModel<T extends widgets.WidgetModel>(
   return new constructor(attributes, modelOptions);
 }
 
-class BroadcastChannelMock {
-  name: string;
-  constructor(name: string) {
-    this.name = name;
+class WorkerMock {
+  constructor(aURL: string | URL, options: WorkerOptions | undefined) {
+    // no-op
   }
   postMessage(data: any) {
     this.onmessage({ data });
+  }
+  onerror(event: any) {
+    // no-op
   }
   onmessage(event: any) {
     // no-op
   }
   onmessageerror() {
-    // no-op
-  }
-  close() {
     // no-op
   }
   addEventListener() {
@@ -144,5 +143,8 @@ class BroadcastChannelMock {
   dispatchEvent(): boolean {
     return false;
   }
+  terminate() {
+    // no-op
+  }
 }
-window.BroadcastChannel = BroadcastChannelMock;
+window.Worker = WorkerMock;

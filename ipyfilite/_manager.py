@@ -27,13 +27,26 @@ class IpyfiliteManager(SingletonConfigurable):
                 FutureWarning,
             )
         else:
-            self._channel = js.BroadcastChannel.new("ipyfilite")
-            self._channel.onmessage = self._on_file_upload
+            channel = js.MessageChannel.new()
+            self._channel = channel.port1
+            self._channel.onmessage = self._on_message
+            js.postMessage(
+                pyodide.ffi.to_js(
+                    {
+                        "type": "ipyfilite",
+                        "kind": "register",
+                        "session": str(self._session),
+                        "channel": channel.port2,
+                    },
+                    dict_converter=js.Object.fromEntries,
+                    create_pyproxies=False,
+                ),
+                [channel.port2],
+            )
 
             self._download_fs = pyodide.code.run_js(
                 (Path(__file__).parent / "download" / "fs.js").read_text()
             )
-            self._download_fs._session = str(self._session)
             self._download_fs._channel = self._channel
             self._download_fs._pyodide = pyodide_js
 
@@ -71,25 +84,27 @@ class IpyfiliteManager(SingletonConfigurable):
     def unregister_upload(self, widget):
         self._upload_widgets.pop(widget._model_id, None)
 
-    def _on_file_upload(self, event):
+    def _on_message(self, event):
         import js
         import pyodide
         import pyodide_js
 
-        if (
-            not getattr(event, "data", None)
-            or not getattr(event.data, "kind", None)
-            or not getattr(event.data, "files", None)
-            or not getattr(event.data, "uuid", None)
-            or not getattr(event.data, "session", None)
-            or not getattr(event.data, "widget", None)
+        if not getattr(event, "data", None) or not getattr(
+            event.data, "kind", None
         ):
             return
 
         if event.data.kind != "upload":
             return
 
-        if event.data.session != str(self.session):
+        if (
+            not getattr(event.data, "files", None)
+            or not getattr(event.data, "uuid", None)
+            or not getattr(event.data, "widget", None)
+        ):
+            return
+
+        if event.data.kind != "upload":
             return
 
         if event.data.widget not in self._upload_widgets:

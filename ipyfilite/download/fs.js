@@ -11,7 +11,6 @@ Object.create({
         node._pre_downloads = {};
         node._pyodide = this._pyodide;
         node._channel = this._channel;
-        node._session = this._session;
         return node;
     },
     create_download: function(parent, uuid, filename) {
@@ -29,11 +28,7 @@ Object.create({
                 parent._pyodide.ERRNO_CODES.EEXIST
             );
         }
-        this._channel.postMessage({
-            kind: "download-close",
-            session: this._session,
-            uuid,
-        });
+        this._writer.close();
         parent._pyodide.FS.destroyNode(node);
         delete parent._downloads[uuid];
     },
@@ -116,16 +111,15 @@ Object.create({
             node.parent.timestamp = node.timestamp;
             node._opened = false;
             node._pyodide = parent._pyodide;
-            node._channel = parent._channel;
-            node._session = parent._session;
+            const transform = new TransformStream();
+            node._writer = transform.writable.getWriter();
             parent._downloads[uuid] = node;
             delete parent._pre_downloads[uuid];
-            node._channel.postMessage({
-                kind: "download-open",
-                session: node._session,
-                uuid,
+            parent._channel.postMessage({
+                kind: "download",
                 name: filename,
-            });
+                stream: transform.readable,
+            }, [transform.readable]);
             return node;
         },
     },
@@ -151,12 +145,7 @@ Object.create({
             };
             stream.node.size += length;
             stream.node.timestamp = Date.now();
-            stream.node._channel.postMessage({
-                kind: "download-chunk",
-                session: stream.node._session,
-                uuid: stream.node.name,
-                chunk: buffer.slice(offset, offset+length),
-            });
+            stream.node._writer.write(buffer.slice(offset, offset+length));
             return length;
         },
         close: function(stream) {
