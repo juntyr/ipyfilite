@@ -28,7 +28,7 @@ Object.create({
                 parent._pyodide.ERRNO_CODES.EEXIST
             );
         }
-        this._writer.close();
+        node._writer.close();
         parent._pyodide.FS.destroyNode(node);
         delete parent._downloads[uuid];
     },

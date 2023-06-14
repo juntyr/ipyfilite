@@ -173,9 +173,11 @@ export class FileUploadLiteView extends DOMWidgetView {
 
 namespace Private {
   const _OldWorker = window.Worker;
-  const _channels = new Map();
+  const _channels: Map<string, MessagePort> = new Map();
 
   class _NewWorker extends _OldWorker {
+    private _session: string | undefined;
+
     constructor(aURL: string | URL, options: WorkerOptions | undefined) {
       super(aURL, options);
 
@@ -192,6 +194,8 @@ namespace Private {
           return;
         }
 
+        this._session = event.data.session;
+
         const channel: MessagePort = event.data.channel;
         _channels.set(event.data.session, channel);
 
@@ -206,12 +210,20 @@ namespace Private {
         };
       });
     }
+
+    terminate(): void {
+      if (this._session !== undefined) {
+        _channels.delete(this._session);
+      }
+
+      super.terminate();
+    }
   }
 
   window.Worker = _NewWorker;
 
   export function getChannel(session: string): MessagePort {
-    return _channels.get(session);
+    return _channels.get(session)!;
   }
 
   const _download_queue: (() => void)[] = [];
