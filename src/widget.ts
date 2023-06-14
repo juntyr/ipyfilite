@@ -194,10 +194,13 @@ namespace Private {
           return;
         }
 
-        this._session = event.data.session;
+        const session = event.data.session;
+        this._session = session;
 
         const channel: MessagePort = event.data.channel;
-        _channels.set(event.data.session, channel);
+        _channels.set(session, channel);
+
+        const backlog = new Int32Array(event.data.backlog);
 
         channel.onmessage = function (event) {
           if (!event.data || !event.data.kind) {
@@ -205,7 +208,7 @@ namespace Private {
           }
 
           if (event.data.kind === 'download') {
-            _processDownload(event.data.name, event.data.stream);
+            _processDownload(backlog, event.data.name, event.data.channel);
           }
         };
       });
@@ -230,103 +233,114 @@ namespace Private {
   let _download_queue_active = false;
 
   /* eslint-disable no-inner-declarations */
-  function _processDownload(name: string, stream: ReadableStream) {
-    const reader: ReadableStreamDefaultReader = stream.getReader();
+  function _processDownload(
+    backlog: Int32Array,
+    name: string,
+    channel: MessagePort
+  ) {
+    const BACKLOG_LIMIT = 1024 * 1024 * 16;
+    const SEGMENT_LIMIT = 1024 * 1024 * 256;
 
     const chunks: Uint8Array[] = [];
     let size = 0;
     let segment = 0;
 
-    _addToDownloadQueue(function continueDownload() {
-      reader
-        .read()
-        .then(function processChunk({ value, done }): void | Promise<any> {
-          let downloadChunk = false;
+    channel.onmessage = function (event) {
+      if (!(event.data && event.data.kind)) {
+        return;
+      }
 
-          if (done) {
-            // download if either
-            // (a) we have received an empty file (not segemented)
-            // (b) we have received a segmented file and there is data left
-            downloadChunk = chunks.length > 0 || segment === 0;
+      if (!(event.data.kind === 'chunk' || event.data.kind === 'close')) {
+        return;
+      }
 
-            if (segment > 0) {
-              segment += 1;
-            }
-          } else {
-            const chunk = new Uint8Array(value);
+      const done = event.data.kind === 'close';
 
-            chunks.push(chunk);
-            size += chunk.length;
+      let downloadChunk = false;
 
-            if (size >= 1024 * 1024 * 256) {
-              segment += 1;
-              downloadChunk = true;
-            }
-          }
+      if (done) {
+        // download if either
+        // (a) we have received an empty file (not segemented)
+        // (b) we have received a segmented file and there is data left
+        downloadChunk = chunks.length > 0 || segment === 0;
 
-          if (!downloadChunk) {
-            if (done) {
-              // continue with the next item in the download queue
-              return _processNextDownloadQueueItem();
-            } else {
-              // continue download without delay
-              return reader.read().then(processChunk);
-            }
-          }
+        if (segment > 0) {
+          segment += 1;
+        }
+      } else {
+        const chunk = new Uint8Array(event.data.chunk);
 
-          const chunkname =
-            segment > 0
-              ? `${name}.${segment.toString().padStart(3, '0')}`
-              : name;
-          _enqueueUserDownload(chunkname, chunks);
+        chunks.push(chunk);
+        size += chunk.length;
 
-          if (done) {
-            // next download queue item has already been queued up
-            return;
-          }
+        const newBacklog = Atomics.sub(backlog, 0, chunk.length);
+        if (newBacklog < BACKLOG_LIMIT / 4) {
+          // Only notify once a lower backlog threshold has been reached
+          Atomics.notify(backlog, 0);
+        }
 
-          chunks.splice(0, chunks.length);
-          size = 0;
+        if (size >= SEGMENT_LIMIT) {
+          segment += 1;
+          downloadChunk = true;
+        }
+      }
 
-          // continue reading after the download
-          _addToDownloadQueue(continueDownload);
-        });
-    });
+      if (!downloadChunk) {
+        return;
+      }
+
+      // Pause further chunks until the download has gone through
+      Atomics.add(backlog, 0, BACKLOG_LIMIT);
+
+      const chunkname =
+        segment > 0 ? `${name}.${segment.toString().padStart(3, '0')}` : name;
+      _enqueueUserDownload(chunkname, chunks, backlog, BACKLOG_LIMIT);
+
+      chunks.splice(0, chunks.length);
+      size = 0;
+    };
   }
 
   /* eslint-disable no-inner-declarations */
-  function _enqueueUserDownload(name: string, chunks: Uint8Array[]) {
+  function _enqueueUserDownload(
+    name: string,
+    chunks: Uint8Array[],
+    backlog: Int32Array,
+    download_penalty: number
+  ) {
     const download = document.createElement('a');
     download.rel = 'noopener';
     download.href = URL.createObjectURL(new Blob(chunks));
     download.download = name;
-    _addToDownloadQueue(() => {
+
+    _download_queue.push(() => {
+      // Resume downloading chunks since the download is now going through
+      Atomics.sub(backlog, 0, download_penalty);
+      Atomics.notify(backlog, 0);
+
       download.dispatchEvent(new MouseEvent('click'));
-      setTimeout(
-        () => _processNextDownloadQueueItem(),
-        1000 + Math.random() * 500
-      );
       setTimeout(() => URL.revokeObjectURL(download.href), 40 * 1000);
     });
-  }
 
-  function _addToDownloadQueue(item: () => void) {
-    if (_download_queue_active) {
-      _download_queue.push(item);
-    } else {
+    if (!_download_queue_active) {
       _download_queue_active = true;
-      item();
+      _processNextDownloadQueueItem();
     }
   }
 
   function _processNextDownloadQueueItem() {
-    const next = _download_queue.shift();
+    const downloadFunc = _download_queue.shift();
 
-    if (next === undefined) {
+    if (downloadFunc === undefined) {
       _download_queue_active = false;
       return;
     }
 
-    next();
+    downloadFunc();
+
+    setTimeout(
+      () => _processNextDownloadQueueItem(),
+      1000 + Math.random() * 500
+    );
   }
 }

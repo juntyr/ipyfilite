@@ -27,6 +27,8 @@ class IpyfiliteManager(SingletonConfigurable):
                 FutureWarning,
             )
         else:
+            backlog = js.SharedArrayBuffer.new(4)
+            self._backlog = js.Int32Array.new(backlog)
             channel = js.MessageChannel.new()
             self._channel = channel.port1
             self._channel.onmessage = self._on_message
@@ -37,6 +39,7 @@ class IpyfiliteManager(SingletonConfigurable):
                         "kind": "register",
                         "session": str(self._session),
                         "channel": channel.port2,
+                        "backlog": backlog,
                     },
                     dict_converter=js.Object.fromEntries,
                     create_pyproxies=False,
@@ -48,6 +51,7 @@ class IpyfiliteManager(SingletonConfigurable):
                 (Path(__file__).parent / "download" / "fs.js").read_text()
             )
             self._download_fs._channel = self._channel
+            self._download_fs._backlog = self._backlog
             self._download_fs._pyodide = pyodide_js
 
             if Path("/download").exists():

@@ -11,6 +11,7 @@ Object.create({
         node._pre_downloads = {};
         node._pyodide = this._pyodide;
         node._channel = this._channel;
+        node._backlog = this._backlog;
         return node;
     },
     create_download: function(parent, uuid, filename) {
@@ -28,7 +29,8 @@ Object.create({
                 parent._pyodide.ERRNO_CODES.EEXIST
             );
         }
-        node._writer.close();
+        node._channel.postMessage({ kind: "close" });
+        node._channel.close();
         parent._pyodide.FS.destroyNode(node);
         delete parent._downloads[uuid];
     },
@@ -111,15 +113,16 @@ Object.create({
             node.parent.timestamp = node.timestamp;
             node._opened = false;
             node._pyodide = parent._pyodide;
-            const transform = new TransformStream();
-            node._writer = transform.writable.getWriter();
+            node._backlog = parent._backlog;
+            const channel = new MessageChannel();
+            node._channel = channel.port1;
             parent._downloads[uuid] = node;
             delete parent._pre_downloads[uuid];
             parent._channel.postMessage({
                 kind: "download",
                 name: filename,
-                stream: transform.readable,
-            }, [transform.readable]);
+                channel: channel.port2,
+            }, [channel.port2]);
             return node;
         },
     },
@@ -143,9 +146,27 @@ Object.create({
                     stream.node._pyodide.ERRNO_CODES.ENODEV
                 )
             };
+            const BACKLOG_LIMIT = 1024 * 1024 * 16;
+            let backlog = Atomics.add(stream.node._backlog, 0, length);
+            while (backlog >= BACKLOG_LIMIT) {
+                backlog = Atomics.sub(stream.node._backlog, 0, length) - length;
+                if (backlog >= BACKLOG_LIMIT) {
+                    if (Atomics.wait(
+                        stream.node._backlog, 0, backlog, 1000,
+                    ) === "timed-out") {
+                        // back off and allow the user-code to re-engage
+                        return 0;
+                    }
+                }
+                backlog = Atomics.add(stream.node._backlog, 0, length);
+            }
+            // TODO: support some write coalescing to reduce the number of messages
             stream.node.size += length;
             stream.node.timestamp = Date.now();
-            stream.node._writer.write(buffer.slice(offset, offset+length));
+            stream.node._channel.postMessage({
+                kind: "chunk",
+                chunk: buffer.slice(offset, offset+length),
+            });
             return length;
         },
         close: function(stream) {
