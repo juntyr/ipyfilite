@@ -211,6 +211,7 @@ namespace Private {
             _processDownload(backlog, event.data.name, event.data.channel);
           }
         };
+        channel.start();
       });
     }
 
@@ -299,6 +300,7 @@ namespace Private {
       chunks.splice(0, chunks.length);
       size = 0;
     };
+    channel.start();
   }
 
   /* eslint-disable no-inner-declarations */

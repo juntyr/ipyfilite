@@ -27,11 +27,18 @@ class IpyfiliteManager(SingletonConfigurable):
                 FutureWarning,
             )
         else:
-            backlog = js.SharedArrayBuffer.new(4)
-            self._backlog = js.Int32Array.new(backlog)
+            try:
+                backlog = js.SharedArrayBuffer.new(4)
+                self._backlog = js.Int32Array.new(backlog)
+            except Exception:
+                raise RuntimeError(
+                    "ipyfilite must run in a secure and cross-origin isolated"
+                    " context"
+                )
             channel = js.MessageChannel.new()
             self._channel = channel.port1
             self._channel.onmessage = self._on_message
+            self._channel.start()
             js.postMessage(
                 pyodide.ffi.to_js(
                     {

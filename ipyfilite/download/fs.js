@@ -116,6 +116,7 @@ Object.create({
             node._backlog = parent._backlog;
             const channel = new MessageChannel();
             node._channel = channel.port1;
+            node._channel.start();
             parent._downloads[uuid] = node;
             delete parent._pre_downloads[uuid];
             parent._channel.postMessage({
