@@ -8,13 +8,13 @@ class FileDownloadPathLite:
         self._name = name
         self._uuid = str(uuid.uuid4())
 
-    def __enter__(self):
-        return IpyfiliteManager.instance().register_download(
+    async def __aenter__(self):
+        return await IpyfiliteManager.instance().register_download(
             self._uuid, self._name
         )
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        IpyfiliteManager.instance().unregister_download(self._uuid)
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await IpyfiliteManager.instance().unregister_download(self._uuid)
         return False
 
     @property

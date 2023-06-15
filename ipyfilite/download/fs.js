@@ -15,11 +15,20 @@ Object.create({
         return node;
     },
     create_download: function(parent, uuid, filename) {
-        parent._pre_downloads[uuid] = { filename };
+        const channel = new MessageChannel();
+        channel.port1.start();
+        parent._channel.postMessage({
+            kind: "download",
+            name: filename,
+            channel: channel.port2,
+        }, [channel.port2]);
+        parent._pre_downloads[uuid] = { channel: channel.port1 };
         return `${parent.mount.mountpoint}/${uuid}`;
     },
     close_download: function(parent, uuid) {
         if (parent._pre_downloads[uuid] !== undefined) {
+            parent._pre_downloads[uuid].channel.postMessage({ kind: "close" });
+            parent._pre_downloads[uuid].channel.close();
             delete parent._pre_downloads[uuid];
             return;
         }
@@ -101,11 +110,10 @@ Object.create({
                     parent._pyodide.ERRNO_CODES.EPERM
                 );
             }
-            const { filename } = parent._pre_downloads[uuid];
+            const { channel } = parent._pre_downloads[uuid];
             const node = parent._pyodide.FS.createNode(
                 parent, uuid, 0o100000 /* S_IFREG */ | 0o222 /* a=w */,
             );
-            node.filename = filename;
             node.node_ops = parent.node_ops;
             node.stream_ops = parent.stream_ops;
             node.size = 0;
@@ -114,16 +122,10 @@ Object.create({
             node._opened = false;
             node._pyodide = parent._pyodide;
             node._backlog = parent._backlog;
-            const channel = new MessageChannel();
-            node._channel = channel.port1;
-            node._channel.start();
+            node._channel = channel;
+            node._channel.postMessage({ kind: "create" });
             parent._downloads[uuid] = node;
             delete parent._pre_downloads[uuid];
-            parent._channel.postMessage({
-                kind: "download",
-                name: filename,
-                channel: channel.port2,
-            }, [channel.port2]);
             return node;
         },
     },

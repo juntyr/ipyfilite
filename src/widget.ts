@@ -242,6 +242,7 @@ namespace Private {
     const BACKLOG_LIMIT = 1024 * 1024 * 16;
     const SEGMENT_LIMIT = 1024 * 1024 * 256;
 
+    let created = false;
     const chunks: Uint8Array[] = [];
     let size = 0;
     let segment = 0;
@@ -251,24 +252,13 @@ namespace Private {
         return;
       }
 
-      if (!(event.data.kind === 'chunk' || event.data.kind === 'close')) {
-        return;
-      }
-
-      const done = event.data.kind === 'close';
-
       let downloadChunk = false;
 
-      if (done) {
-        // download if either
-        // (a) we have received an empty file (not segemented)
-        // (b) we have received a segmented file and there is data left
-        downloadChunk = chunks.length > 0 || segment === 0;
+      if (event.data.kind === 'create') {
+        created = true;
+      } else if (event.data.kind === 'chunk') {
+        created = true;
 
-        if (segment > 0) {
-          segment += 1;
-        }
-      } else {
         const chunk = new Uint8Array(event.data.chunk);
 
         chunks.push(chunk);
@@ -284,6 +274,23 @@ namespace Private {
           segment += 1;
           downloadChunk = true;
         }
+      } else if (event.data.kind === 'close') {
+        if (created) {
+          // download if the file was created and either
+          // (a) we have received an empty file (not segemented)
+          // (b) we have received a segmented file and there is data left
+          downloadChunk = chunks.length > 0 || segment === 0;
+        }
+
+        if (segment > 0) {
+          segment += 1;
+        }
+
+        channel.onmessage = null;
+        channel.close();
+      } else {
+        // ignore unknown message kinds
+        return;
       }
 
       if (!downloadChunk) {

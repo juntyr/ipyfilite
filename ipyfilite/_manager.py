@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import uuid
 import warnings
@@ -150,11 +151,17 @@ class IpyfiliteManager(SingletonConfigurable):
             ],
         )
 
-    def register_download(self, uuid: str, name: str) -> Path:
+    async def register_download(self, uuid: str, name: str) -> Path:
+        # Firefox currently requires async sleeps to fully initialise
+        #  the MessageChannels so that messages can be received
+        await asyncio.sleep(0.001)
         path = self._download_fs.create_download(
             self._download_root, uuid, name
         )
+        await asyncio.sleep(0.0001)
         return Path(path)
 
-    def unregister_download(self, uuid: str):
+    async def unregister_download(self, uuid: str):
+        await asyncio.sleep(0.001)
         self._download_fs.close_download(self._download_root, uuid)
+        await asyncio.sleep(0.001)
