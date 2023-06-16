@@ -184,6 +184,21 @@ Object.create({
             stream.node._opened = false;
         },
         llseek: function(stream, offset, whence) {
+            // Only allow seeks
+            // - on directories
+            // - CUR + 0: needed for tell
+            // - END + 0: needed for append
+            if (
+                !stream.node._pyodide.FS.isDir(stream.node.mode) &&
+                !(
+                    (offset === 0 && whence === 1) ||
+                    (offset === 0 && whence === 2)
+                )
+            ) {
+                throw new stream.node._pyodide.FS.ErrnoError(
+                    stream.node._pyodide.ERRNO_CODES.ESPIPE
+                );
+            }
             let position = offset;
             if (whence === 1) {
                 position += stream.position;
@@ -195,14 +210,6 @@ Object.create({
             if (position < 0) {
                 throw new stream.node._pyodide.FS.ErrnoError(
                     stream.node._pyodide.ERRNO_CODES.EINVAL
-                );
-            }
-            if (
-                !stream.node._pyodide.FS.isDir(stream.node.mode) &&
-                (position !== stream.node.size)
-            ) {
-                throw new stream.node._pyodide.FS.ErrnoError(
-                    stream.node._pyodide.ERRNO_CODES.ESPIPE
                 );
             }
             return position;
