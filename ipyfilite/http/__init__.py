@@ -35,13 +35,33 @@ class HTTPFileIO(io.FileIO if _has_pyodide else io.BufferedReader):
             )
 
         if _has_pyodide:
-            content_length, accept_ranges = (
-                _get_content_length_accept_ranges_pyodide(url)
+            content_length, content_encoding, accept_ranges = (
+                _get_content_length_encoding_accept_ranges_pyodide(url)
             )
         else:
-            content_length, accept_ranges = (
-                _get_content_length_accept_ranges_urllib(url)
+            content_length, content_encoding, accept_ranges = (
+                _get_content_length_encoding_accept_ranges_urllib(url)
             )
+
+        if content_encoding is not None:
+            content_length = None
+
+        if content_length is None and accept_ranges == "bytes":
+            if _has_pyodide:
+                content_range = _get_content_range_pyodide(url)
+            else:
+                content_range = _get_content_range_urllib(url)
+
+            # Content-Range: <unit> <range-start>-<range-end>/<size>
+            # Content-Range: <unit> <range-start>-<range-end>/*
+            # Content-Range: <unit> */<size>
+            if (
+                content_range is not None
+                and content_range.startswith("bytes ")
+                and "/" in content_range
+                and not content_range.endswith("/*")
+            ):
+                content_length = int(content_range.rsplit("/", 1)[-1])
 
         if content_length is None:
             raise IndexError(f"Unknown HTTP file length for '{url}'")
@@ -121,9 +141,9 @@ class HTTPFileIO(io.FileIO if _has_pyodide else io.BufferedReader):
             pass
 
 
-def _get_content_length_accept_ranges_pyodide(
+def _get_content_length_encoding_accept_ranges_pyodide(
     url: str,
-) -> Tuple[Optional[int], Optional[str]]:
+) -> Tuple[Optional[int], Optional[str], Optional[str]]:
     xhr = js.XMLHttpRequest.new()
     xhr.open("HEAD", url, False)
     xhr.send(None)
@@ -134,12 +154,15 @@ def _get_content_length_accept_ranges_pyodide(
     accept_ranges = xhr.getResponseHeader("accept-ranges")
     accept_ranges = accept_ranges.lower() if accept_ranges else None
 
-    return (content_length, accept_ranges)
+    content_encoding = xhr.getResponseHeader("content-encoding")
+    content_encoding = content_encoding.lower() if content_encoding else None
+
+    return (content_length, content_encoding, accept_ranges)
 
 
-def _get_content_length_accept_ranges_urllib(
+def _get_content_length_encoding_accept_ranges_urllib(
     url: str,
-) -> Tuple[Optional[int], Optional[str]]:
+) -> Tuple[Optional[int], Optional[str], Optional[str]]:
     with urllib.request.urlopen(
         urllib.request.Request(url, method="HEAD")
     ) as response:
@@ -149,7 +172,50 @@ def _get_content_length_accept_ranges_urllib(
         accept_ranges = response.getheader("accept-ranges", None)
         accept_ranges = accept_ranges.lower() if accept_ranges else None
 
-    return (content_length, accept_ranges)
+        content_encoding = response.getheader("content-encoding", None)
+        content_encoding = (
+            content_encoding.lower() if content_encoding else None
+        )
+
+    return (content_length, content_encoding, accept_ranges)
+
+
+def _get_content_range_pyodide(
+    url: str,
+) -> Optional[str]:
+    xhr = js.XMLHttpRequest.new()
+    xhr.open("GET", url, False)
+    xhr.setRequestHeader("range", "bytes=0-1")
+    xhr.send(None)
+
+    if xhr.status != 416:
+        return None
+
+    content_range = xhr.getResponseHeader("content-range")
+    content_range = content_range.lower() if content_range else None
+
+    return content_range
+
+
+def _get_content_range_urllib(
+    url: str,
+) -> Optional[str]:
+    with urllib.request.urlopen(
+        urllib.request.Request(
+            url,
+            method="GET",
+            headers={
+                "range": "bytes=0-1",
+            },
+        )
+    ) as response:
+        if response.status != 416:
+            return None
+
+        content_range = response.getheader("content-range", None)
+        content_range = content_range.lower() if content_range else None
+
+    return content_range
 
 
 if _has_pyodide:

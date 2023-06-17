@@ -9,4 +9,4 @@ Information about the frontend package of the widgets.
 """
 
 module_name = "ipyfilite"
-module_version = "^0.1.15"
+module_version = "^0.1.16"
