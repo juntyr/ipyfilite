@@ -188,7 +188,10 @@ def _get_content_range_pyodide(
     xhr.setRequestHeader("range", "bytes=0-1")
     xhr.send(None)
 
-    if xhr.status != 416:
+    if xhr.status != 206:
+        return None
+
+    if xhr.getResponseHeader("content-encoding") is not None:
         return None
 
     content_range = xhr.getResponseHeader("content-range")
@@ -209,7 +212,10 @@ def _get_content_range_urllib(
             },
         )
     ) as response:
-        if response.status != 416:
+        if response.status != 206:
+            return None
+
+        if response.getheader("content-encoding", None) is not None:
             return None
 
         content_range = response.getheader("content-range", None)
