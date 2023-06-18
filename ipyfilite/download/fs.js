@@ -16,16 +16,26 @@ Object.create({
     },
     create_download: function(parent, uuid, filename) {
         const channel = new MessageChannel();
+        channel.port1.onmessage = (event) => {
+            if (!(event.data && event.data.kind && event.data.kind === "abort")) {
+                return;
+            }
+            const node = parent._downloads[uuid];
+            if (node !== undefined) {
+                node._aborted = true;
+            }
+        };
         channel.port1.start();
         parent._channel.postMessage({
             kind: "download",
+            uuid,
             name: filename,
             channel: channel.port2,
         }, [channel.port2]);
         parent._pre_downloads[uuid] = { channel: channel.port1 };
         return `${parent.mount.mountpoint}/${uuid}`;
     },
-    close_download: function(parent, uuid) {
+    close_download: function(parent, uuid, abort) {
         if (parent._pre_downloads[uuid] !== undefined) {
             parent._pre_downloads[uuid].channel.postMessage({ kind: "close" });
             parent._pre_downloads[uuid].channel.close();
@@ -38,7 +48,11 @@ Object.create({
                 parent._pyodide.ERRNO_CODES.EEXIST
             );
         }
-        node._channel.postMessage({ kind: "close" });
+        if (abort) {
+            node._channel.postMessage({ kind: "abort" });
+        } else {
+            node._channel.postMessage({ kind: "close" });
+        }
         node._channel.close();
         parent._pyodide.FS.destroyNode(node);
         delete parent._downloads[uuid];
@@ -120,6 +134,7 @@ Object.create({
             node.timestamp = Date.now();
             node.parent.timestamp = node.timestamp;
             node._opened = false;
+            node._aborted = false;
             node._pyodide = parent._pyodide;
             node._backlog = parent._backlog;
             node._channel = channel;
@@ -139,6 +154,11 @@ Object.create({
                     stream.node._pyodide.ERRNO_CODES.EEXIST
                 );
             }
+            if (stream.node._aborted === true) {
+                throw new stream.node._pyodide.FS.ErrnoError(
+                    stream.node._pyodide.ERRNO_CODES.EPIPE
+                );
+            }
             stream.node._opened = true;
         },
         write: function(
@@ -149,6 +169,11 @@ Object.create({
                     stream.node._pyodide.ERRNO_CODES.ENODEV
                 )
             };
+            if (stream.node._aborted === true) {
+                throw new stream.node._pyodide.FS.ErrnoError(
+                    stream.node._pyodide.ERRNO_CODES.EPIPE
+                );
+            }
             const BACKLOG_LIMIT = 1024 * 1024 * 16;
             let backlog = Atomics.add(stream.node._backlog, 0, length);
             while (backlog >= BACKLOG_LIMIT) {
@@ -181,6 +206,9 @@ Object.create({
                     stream.node._pyodide.ERRNO_CODES.ENODEV
                 )
             };
+            if (stream.node._aborted === true) {
+                // no-op
+            }
             stream.node._opened = false;
         },
         llseek: function(stream, offset, whence) {

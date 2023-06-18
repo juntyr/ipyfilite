@@ -14,7 +14,9 @@ class FileDownloadPathLite:
         )
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        await IpyfiliteManager.instance().unregister_download(self._uuid)
+        await IpyfiliteManager.instance().unregister_download(
+            self._uuid, exc_value is not None
+        )
         return False
 
     @property

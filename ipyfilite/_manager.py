@@ -161,7 +161,7 @@ class IpyfiliteManager(SingletonConfigurable):
         await asyncio.sleep(0.0001)
         return Path(path)
 
-    async def unregister_download(self, uuid: str):
+    async def unregister_download(self, uuid: str, abort: bool):
         await asyncio.sleep(0.001)
-        self._download_fs.close_download(self._download_root, uuid)
+        self._download_fs.close_download(self._download_root, uuid, abort)
         await asyncio.sleep(0.001)

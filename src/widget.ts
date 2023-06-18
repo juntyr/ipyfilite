@@ -174,6 +174,7 @@ export class FileUploadLiteView extends DOMWidgetView {
 namespace Private {
   const _OldWorker = window.Worker;
   const _channels: Map<string, MessagePort> = new Map();
+  const _downloads: Map<string, Map<string, MessagePort>> = new Map();
 
   class _NewWorker extends _OldWorker {
     private _session: string | undefined;
@@ -199,6 +200,7 @@ namespace Private {
 
         const channel: MessagePort = event.data.channel;
         _channels.set(session, channel);
+        _downloads.set(session, new Map());
 
         const backlog = new Int32Array(event.data.backlog);
 
@@ -208,7 +210,13 @@ namespace Private {
           }
 
           if (event.data.kind === 'download') {
-            _processDownload(backlog, event.data.name, event.data.channel);
+            _processDownload(
+              backlog,
+              session,
+              event.data.uuid,
+              event.data.name,
+              event.data.channel
+            );
           }
         };
         channel.start();
@@ -217,7 +225,17 @@ namespace Private {
 
     terminate(): void {
       if (this._session !== undefined) {
-        _channels.delete(this._session);
+        if (_channels.has(this._session)) {
+          _channels.get(this._session)!.close();
+          _channels.delete(this._session);
+        }
+
+        if (_downloads.has(this._session)) {
+          for (const channel of _downloads.get(this._session)!.values()) {
+            channel.postMessage({ kind: 'abort' });
+          }
+          _downloads.delete(this._session);
+        }
       }
 
       super.terminate();
@@ -233,23 +251,78 @@ namespace Private {
   const _download_queue: (() => void)[] = [];
   let _download_queue_active = false;
 
+  let _service_worker: ServiceWorker | null = null;
+
   /* eslint-disable no-inner-declarations */
   function _processDownload(
     backlog: Int32Array,
+    session: string,
+    uuid: string,
     name: string,
     channel: MessagePort
   ) {
     const BACKLOG_LIMIT = 1024 * 1024 * 16;
     const SEGMENT_LIMIT = 1024 * 1024 * 256;
 
+    const service_worker: ServiceWorker | null = _service_worker;
+    let service_worker_channel: MessagePort | null = null;
+
     let created = false;
     const chunks: Uint8Array[] = [];
     let size = 0;
     let segment = 0;
 
+    _downloads.get(session)!.set(uuid, channel);
+
     channel.onmessage = function (event) {
       if (!(event.data && event.data.kind)) {
         return;
+      }
+
+      if (event.data.kind === 'close' || event.data.kind === 'abort') {
+        channel.onmessage = null;
+        channel.close();
+      }
+
+      if (service_worker !== null) {
+        if (service_worker_channel === null) {
+          if (event.data.kind === 'create' || event.data.kind === 'chunk') {
+            const url = new URL(`./download/${session}/${uuid}`).toString();
+            const sw_channel = new MessageChannel();
+
+            service_worker_channel = sw_channel.port1;
+            service_worker_channel.onmessage = (event) => {
+              if (
+                !(event.data && event.data.kind && event.data.kind === 'abort')
+              ) {
+                return;
+              }
+
+              channel.postMessage({ kind: 'abort' });
+            };
+            service_worker_channel.start();
+
+            service_worker.postMessage({
+              url,
+              channel: sw_channel.port2,
+              backlog: backlog.buffer,
+            });
+
+            // Pause further chunks until the download has started
+            Atomics.add(backlog, 0, BACKLOG_LIMIT);
+
+            _enqueueUserDownloadWithUrl(name, url, backlog, BACKLOG_LIMIT);
+          }
+        }
+
+        if (service_worker_channel !== null) {
+          if (event.data.kind === 'close' || event.data.kind === 'abort') {
+            service_worker_channel.onmessage = null;
+            service_worker_channel.close();
+          }
+
+          return service_worker_channel.postMessage(event.data);
+        }
       }
 
       let downloadChunk = false;
@@ -285,9 +358,8 @@ namespace Private {
         if (segment > 0) {
           segment += 1;
         }
-
-        channel.onmessage = null;
-        channel.close();
+      } else if (event.data.kind === 'abort') {
+        return;
       } else {
         // ignore unknown message kinds
         return;
@@ -302,7 +374,12 @@ namespace Private {
 
       const chunkname =
         segment > 0 ? `${name}.${segment.toString().padStart(3, '0')}` : name;
-      _enqueueUserDownload(chunkname, chunks, backlog, BACKLOG_LIMIT);
+      _enqueueUserDownloadWithUrl(
+        chunkname,
+        URL.createObjectURL(new Blob(chunks)),
+        backlog,
+        BACKLOG_LIMIT
+      );
 
       chunks.splice(0, chunks.length);
       size = 0;
@@ -311,19 +388,19 @@ namespace Private {
   }
 
   /* eslint-disable no-inner-declarations */
-  function _enqueueUserDownload(
+  function _enqueueUserDownloadWithUrl(
     name: string,
-    chunks: Uint8Array[],
+    url: string,
     backlog: Int32Array,
     download_penalty: number
   ) {
     const download = document.createElement('a');
     download.rel = 'noopener';
-    download.href = URL.createObjectURL(new Blob(chunks));
+    download.href = url;
     download.download = name;
 
     _download_queue.push(() => {
-      // Resume downloading chunks since the download is now going through
+      // Resume downloading chunks since the download has now started
       Atomics.sub(backlog, 0, download_penalty);
       Atomics.notify(backlog, 0);
 
@@ -351,5 +428,38 @@ namespace Private {
       () => _processNextDownloadQueueItem(),
       1000 + Math.random() * 500
     );
+  }
+
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker
+      .getRegistration('./download/')
+      .then((swReg) => {
+        return (
+          swReg ||
+          navigator.serviceWorker.register('service-worker.ts', {
+            scope: './download/',
+          })
+        );
+      })
+      .then((swReg) => {
+        if ((_service_worker = swReg.active) !== null) {
+          return;
+        }
+
+        const bootingServiceWorker = (swReg.installing || swReg.waiting)!;
+
+        bootingServiceWorker.addEventListener(
+          'statechange',
+          function serviceWorkerActivationListener() {
+            if (bootingServiceWorker.state === 'activated') {
+              bootingServiceWorker.removeEventListener(
+                'statechange',
+                serviceWorkerActivationListener
+              );
+              _service_worker = swReg.active;
+            }
+          }
+        );
+      });
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "ipyfilite",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "File upload widget specifically for Pyodide kernels running in JupyterLite. Uploaded files are not loaded into memory but mounted as read-only files in a new WORKERFS.",
   "keywords": [
     "jupyter",
