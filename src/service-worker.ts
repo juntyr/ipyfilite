@@ -13,20 +13,10 @@ self.onactivate = (event) => {
 const downloads = new Map();
 
 self.onmessage = (event: MessageEvent) => {
-  const backlog = new Int32Array(event.data.backlog);
-
-  downloads.set(
-    event.data.url,
-    createDownloadStream(event.data.channel, backlog)
-  );
+  downloads.set(event.data.url, createDownloadStream(event.data.channel));
 };
 
-function createDownloadStream(
-  channel: MessagePort,
-  backlog: Int32Array
-): ReadableStream {
-  const BACKLOG_LIMIT = 1024 * 1024 * 16;
-
+function createDownloadStream(channel: MessagePort): ReadableStream {
   return new ReadableStream({
     start(controller: ReadableStreamDefaultController) {
       channel.onmessage = (event) => {
@@ -46,32 +36,14 @@ function createDownloadStream(
           const chunk = new Uint8Array(event.data.chunk);
 
           controller.enqueue(chunk);
-
-          const newBacklog = Atomics.sub(backlog, 0, chunk.length);
-          if (newBacklog < BACKLOG_LIMIT / 4) {
-            // Only notify once a lower backlog threshold has been reached
-            Atomics.notify(backlog, 0);
-          }
         }
       };
       channel.start();
     },
     cancel(_reason: any) {
-      // We have to acknowledge any remaining chunks
-      channel.onmessage = (event) => {
-        if (event.data.kind === 'chunk') {
-          const chunk = new Uint8Array(event.data.chunk);
-
-          const newBacklog = Atomics.sub(backlog, 0, chunk.length);
-          if (newBacklog < BACKLOG_LIMIT / 4) {
-            // Only notify once a lower backlog threshold has been reached
-            Atomics.notify(backlog, 0);
-          }
-        }
-      };
-      channel.start();
       // We can try to pass on the abort upstream
       channel.postMessage({ kind: 'abort' });
+      channel.close();
     },
   });
 }

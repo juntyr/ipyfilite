@@ -323,12 +323,22 @@ namespace Private {
         }
 
         if (service_worker_channel !== null) {
+          service_worker_channel.postMessage(event.data);
+
           if (event.data.kind === 'close' || event.data.kind === 'abort') {
             service_worker_channel.onmessage = null;
             service_worker_channel.close();
+          } else if (event.data.kind === 'chunk') {
+            const chunk = new Uint8Array(event.data.chunk);
+
+            const newBacklog = Atomics.sub(backlog, 0, chunk.length);
+            if (newBacklog < BACKLOG_LIMIT / 4) {
+              // Only notify once a lower backlog threshold has been reached
+              Atomics.notify(backlog, 0);
+            }
           }
 
-          return service_worker_channel.postMessage(event.data);
+          return;
         }
       }
 
