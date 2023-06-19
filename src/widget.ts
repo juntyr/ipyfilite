@@ -290,7 +290,7 @@ namespace Private {
         if (service_worker_channel === null) {
           if (event.data.kind === 'create' || event.data.kind === 'chunk') {
             const url = new URL(
-              `${_service_worker_scope}/${session}/${uuid}`
+              `${_service_worker_scope}/download/${session}/${uuid}`
             ).toString();
             const sw_channel = new MessageChannel();
 
@@ -306,11 +306,14 @@ namespace Private {
             };
             service_worker_channel.start();
 
-            service_worker.postMessage({
-              url,
-              channel: sw_channel.port2,
-              backlog: backlog.buffer,
-            });
+            service_worker.postMessage(
+              {
+                url,
+                channel: sw_channel.port2,
+                backlog: backlog.buffer,
+              },
+              [sw_channel.port2]
+            );
 
             // Pause further chunks until the download has started
             Atomics.add(backlog, 0, BACKLOG_LIMIT);
