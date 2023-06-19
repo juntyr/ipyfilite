@@ -296,29 +296,28 @@ namespace Private {
 
             service_worker_channel = sw_channel.port1;
             service_worker_channel.onmessage = (event) => {
-              if (
-                !(event.data && event.data.kind && event.data.kind === 'abort')
-              ) {
+              if (!(event.data && event.data.kind)) {
                 return;
               }
 
-              channel.postMessage({ kind: 'abort' });
+              if (event.data.kind === 'ready') {
+                _enqueueUserDownloadWithUrl(name, url, backlog, BACKLOG_LIMIT);
+              } else if (event.data.kind === 'abort') {
+                channel.postMessage({ kind: 'abort' });
+              }
             };
             service_worker_channel.start();
+
+            // Pause further chunks until the download has started
+            Atomics.add(backlog, 0, BACKLOG_LIMIT);
 
             service_worker.postMessage(
               {
                 url,
                 channel: sw_channel.port2,
-                backlog: backlog.buffer,
               },
               [sw_channel.port2]
             );
-
-            // Pause further chunks until the download has started
-            Atomics.add(backlog, 0, BACKLOG_LIMIT);
-
-            _enqueueUserDownloadWithUrl(name, url, backlog, BACKLOG_LIMIT);
           }
         }
 

@@ -14,6 +14,9 @@ const downloads = new Map();
 
 self.onmessage = (event: MessageEvent) => {
   downloads.set(event.data.url, createDownloadStream(event.data.channel));
+
+  // Notify the client that the download is ready
+  event.data.channel.postMessage({ kind: 'ready' });
 };
 
 function createDownloadStream(channel: MessagePort): ReadableStream {
