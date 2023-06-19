@@ -30,7 +30,7 @@ function createDownloadStream(channel: MessagePort): ReadableStream {
           // no-op
         }
 
-        if (event.data.kind === 'end') {
+        if (event.data.kind === 'close') {
           return controller.close();
         }
 
