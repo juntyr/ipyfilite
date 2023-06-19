@@ -1,9 +1,6 @@
-// @ts-check
-/// <reference no-default-lib="true"/>
-/// <reference lib="WebWorker" />
+/// <reference types="./serviceworker" />
 
-export type {};
-declare const self: ServiceWorkerGlobalScope;
+export default null;
 
 self.oninstall = () => {
   self.skipWaiting();
@@ -15,7 +12,7 @@ self.onactivate = (event) => {
 
 const downloads = new Map();
 
-self.onmessage = (event) => {
+self.onmessage = (event: MessageEvent) => {
   const backlog = new Int32Array(event.data.backlog);
 
   downloads.set(

@@ -439,7 +439,7 @@ namespace Private {
           navigator.serviceWorker.register(
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            new URL('./service-worker.ts', import.meta.url),
+            new URL('./service-worker', import.meta.url),
             { scope: './download/' }
           )
         );
