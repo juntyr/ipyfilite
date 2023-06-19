@@ -7,6 +7,7 @@ import {
   ISerializers,
   uuid as uuidv4,
 } from '@jupyter-widgets/base';
+import { registerServiceWorker } from './register';
 
 import { MODULE_NAME, MODULE_VERSION } from './version';
 
@@ -434,15 +435,7 @@ namespace Private {
     navigator.serviceWorker
       .getRegistration('./download/')
       .then((swReg) => {
-        return (
-          swReg ||
-          navigator.serviceWorker.register(
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            new URL('./service-worker', import.meta.url),
-            { scope: './download/' }
-          )
-        );
+        return swReg || registerServiceWorker();
       })
       .then((swReg) => {
         if ((_service_worker = swReg.active) !== null) {

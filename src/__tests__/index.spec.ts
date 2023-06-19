@@ -6,6 +6,8 @@
 
 import { createTestModel } from './utils';
 
+jest.mock('../register.ts');
+
 import { FileUploadLiteModel } from '..';
 
 describe('FileUploadLite', () => {
