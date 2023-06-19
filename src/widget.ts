@@ -253,6 +253,7 @@ namespace Private {
   let _download_queue_active = false;
 
   let _service_worker: ServiceWorker | null = null;
+  let _service_worker_scope = '';
 
   /* eslint-disable no-inner-declarations */
   function _processDownload(
@@ -288,7 +289,9 @@ namespace Private {
       if (service_worker !== null) {
         if (service_worker_channel === null) {
           if (event.data.kind === 'create' || event.data.kind === 'chunk') {
-            const url = new URL(`./download/${session}/${uuid}`).toString();
+            const url = new URL(
+              `${_service_worker_scope}/${session}/${uuid}`
+            ).toString();
             const sw_channel = new MessageChannel();
 
             service_worker_channel = sw_channel.port1;
@@ -433,16 +436,19 @@ namespace Private {
 
   if (navigator.serviceWorker) {
     navigator.serviceWorker
-      .getRegistration('./download/')
-      .then((swReg) => {
-        return swReg || registerServiceWorker();
+      .getRegistration()
+      .then((serviceWorkerRegistration) => {
+        return serviceWorkerRegistration || registerServiceWorker();
       })
-      .then((swReg) => {
-        if ((_service_worker = swReg.active) !== null) {
+      .then((serviceWorkerRegistration) => {
+        _service_worker_scope = serviceWorkerRegistration.scope;
+
+        if ((_service_worker = serviceWorkerRegistration.active) !== null) {
           return;
         }
 
-        const bootingServiceWorker = (swReg.installing || swReg.waiting)!;
+        const bootingServiceWorker = (serviceWorkerRegistration.installing ||
+          serviceWorkerRegistration.waiting)!;
 
         bootingServiceWorker.addEventListener(
           'statechange',
@@ -452,7 +458,7 @@ namespace Private {
                 'statechange',
                 serviceWorkerActivationListener
               );
-              _service_worker = swReg.active;
+              _service_worker = serviceWorkerRegistration.active;
             }
           }
         );
