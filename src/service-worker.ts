@@ -1,10 +1,17 @@
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
+// @ts-check
+/// <reference no-default-lib="true"/>
+/// <reference lib="WebWorker" />
 
-self.addEventListener('activate', (event) => {
+export type {};
+declare const self: ServiceWorkerGlobalScope;
+
+self.oninstall = () => {
+  self.skipWaiting();
+};
+
+self.onactivate = (event) => {
   event.waitUntil(self.clients.claim());
-});
+};
 
 const downloads = new Map();
 
@@ -24,7 +31,7 @@ function createDownloadStream(
   const BACKLOG_LIMIT = 1024 * 1024 * 16;
 
   return new ReadableStream({
-    start(controller) {
+    start(controller: ReadableStreamDefaultController) {
       channel.onmessage = (event) => {
         if (event.data.kind === 'create') {
           // no-op
@@ -52,7 +59,7 @@ function createDownloadStream(
       };
       channel.start();
     },
-    cancel(_reason) {
+    cancel(_reason: any) {
       // We have to acknowledge any remaining chunks
       channel.onmessage = (event) => {
         if (event.data.kind === 'chunk') {

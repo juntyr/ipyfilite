@@ -436,9 +436,12 @@ namespace Private {
       .then((swReg) => {
         return (
           swReg ||
-          navigator.serviceWorker.register('service-worker.ts', {
-            scope: './download/',
-          })
+          navigator.serviceWorker.register(
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            new URL('./service-worker.ts', import.meta.url),
+            { scope: './download/' }
+          )
         );
       })
       .then((swReg) => {

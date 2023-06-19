@@ -63,8 +63,9 @@ instance/
 
 # Sphinx documentation
 docs/_build/
-docs/source/_static/embed-bundle.js
-docs/source/_static/embed-bundle.js.map
+docs/source/_static/*.js
+docs/source/_static/*.js.map
+!docs/source/_static/helper.js
 
 # PyBuilder
 target/
@@ -148,7 +149,9 @@ $RECYCLE.BIN/
 package-lock.json
 
 **/node_modules/
-ipyfilite/nbextension/index.*
+ipyfilite/nbextension/*.js
+ipyfilite/nbextension/*.js.map
+!ipyfilite/nbextension/extension.js
 
 # Coverage data
 # -------------
