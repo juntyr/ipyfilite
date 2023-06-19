@@ -13,7 +13,10 @@ self.onactivate = (event) => {
 const downloads = new Map();
 
 self.onmessage = (event: MessageEvent) => {
-  downloads.set(event.data.url, createDownloadStream(event.data.channel));
+  downloads.set(event.data.url, {
+    name: event.data.name,
+    stream: createDownloadStream(event.data.channel),
+  });
 
   // Notify the client that the download is ready
   event.data.channel.postMessage({ kind: 'ready' });
@@ -52,16 +55,29 @@ function createDownloadStream(channel: MessagePort): ReadableStream {
 }
 
 self.onfetch = (event) => {
-  const download: ReadableStream | undefined = downloads.get(event.request.url);
+  const download: { name: string; stream: ReadableStream } | undefined =
+    downloads.get(event.request.url);
 
   if (download === undefined) {
     return null;
   }
 
+  const { name, stream } = download;
+
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/
+  //  Global_Objects/encodeURIComponent#encoding_for_content-disposition_
+  //  and_link_headers
+  const filename = encodeURIComponent(name)
+    .replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/%(7C|60|5E)/g, (_str, hex) =>
+      String.fromCharCode(parseInt(hex, 16))
+    );
+
   downloads.delete(event.request.url);
 
   const headers = new Headers({
-    'Content-Type': 'application/octet-stream',
+    'Content-Type': 'application/octet-stream; charset=utf-8',
+    'Content-Disposition': "attachment; filename*=UTF-8''" + filename,
     'Content-Security-Policy': "default-src 'none'",
     'X-Content-Security-Policy': "default-src 'none'",
     'X-WebKit-CSP': "default-src 'none'",
@@ -69,5 +85,5 @@ self.onfetch = (event) => {
     'Cross-Origin-Embedder-Policy': 'require-corp',
   });
 
-  event.respondWith(new Response(download, { headers }));
+  event.respondWith(new Response(stream, { headers }));
 };

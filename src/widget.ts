@@ -301,7 +301,17 @@ namespace Private {
               }
 
               if (event.data.kind === 'ready') {
-                _enqueueUserDownloadWithUrl(name, url, backlog, BACKLOG_LIMIT);
+                const iframe = document.createElement('iframe');
+                iframe.hidden = true;
+                iframe.src = url;
+
+                _enqueueUserDownload(() => {
+                  // Resume downloading chunks since the download has now started
+                  Atomics.sub(backlog, 0, BACKLOG_LIMIT);
+                  Atomics.notify(backlog, 0);
+
+                  document.body.appendChild(iframe);
+                });
               } else if (event.data.kind === 'abort') {
                 channel.postMessage({ kind: 'abort' });
               }
@@ -313,6 +323,7 @@ namespace Private {
 
             service_worker.postMessage(
               {
+                name,
                 url,
                 channel: sw_channel.port2,
               },
@@ -390,12 +401,20 @@ namespace Private {
 
       const chunkname =
         segment > 0 ? `${name}.${segment.toString().padStart(3, '0')}` : name;
-      _enqueueUserDownloadWithUrl(
-        chunkname,
-        URL.createObjectURL(new Blob(chunks)),
-        backlog,
-        BACKLOG_LIMIT
-      );
+
+      const download = document.createElement('a');
+      download.rel = 'noopener';
+      download.href = URL.createObjectURL(new Blob(chunks));
+      download.download = chunkname;
+
+      _enqueueUserDownload(() => {
+        // Resume downloading chunks since the download has now started
+        Atomics.sub(backlog, 0, BACKLOG_LIMIT);
+        Atomics.notify(backlog, 0);
+
+        download.dispatchEvent(new MouseEvent('click'));
+        setTimeout(() => URL.revokeObjectURL(download.href), 40 * 1000);
+      });
 
       chunks.splice(0, chunks.length);
       size = 0;
@@ -404,25 +423,8 @@ namespace Private {
   }
 
   /* eslint-disable no-inner-declarations */
-  function _enqueueUserDownloadWithUrl(
-    name: string,
-    url: string,
-    backlog: Int32Array,
-    download_penalty: number
-  ) {
-    const download = document.createElement('a');
-    download.rel = 'noopener';
-    download.href = url;
-    download.download = name;
-
-    _download_queue.push(() => {
-      // Resume downloading chunks since the download has now started
-      Atomics.sub(backlog, 0, download_penalty);
-      Atomics.notify(backlog, 0);
-
-      download.dispatchEvent(new MouseEvent('click'));
-      setTimeout(() => URL.revokeObjectURL(download.href), 40 * 1000);
-    });
+  function _enqueueUserDownload(download: () => void) {
+    _download_queue.push(download);
 
     if (!_download_queue_active) {
       _download_queue_active = true;
