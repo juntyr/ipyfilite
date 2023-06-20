@@ -249,7 +249,7 @@ namespace Private {
     return _channels.get(session)!;
   }
 
-  const _download_queue: (() => void)[] = [];
+  const _download_queue: (() => Promise<void>)[] = [];
   let _download_queue_active = false;
 
   let _service_worker: ServiceWorker | null = null;
@@ -268,6 +268,12 @@ namespace Private {
 
     const service_worker: ServiceWorker | null = _service_worker;
     let service_worker_channel: MessagePort | null = null;
+    let download_ready_resolve: (value: unknown) => void;
+    let download_ready_reject: (value: unknown) => void;
+    const download_ready = new Promise((resolve, reject) => {
+      download_ready_resolve = resolve;
+      download_ready_reject = reject;
+    });
 
     let created = false;
     const chunks: Uint8Array[] = [];
@@ -301,19 +307,10 @@ namespace Private {
               }
 
               if (event.data.kind === 'ready') {
-                const iframe = document.createElement('iframe');
-                iframe.hidden = true;
-                iframe.src = url;
-
-                _enqueueUserDownload(() => {
-                  // Resume downloading chunks since the download has now started
-                  Atomics.sub(backlog, 0, BACKLOG_LIMIT);
-                  Atomics.notify(backlog, 0);
-
-                  document.body.appendChild(iframe);
-                });
+                download_ready_resolve(null);
               } else if (event.data.kind === 'abort') {
                 channel.postMessage({ kind: 'abort' });
+                download_ready_reject(null);
               }
             };
             service_worker_channel.start();
@@ -321,14 +318,34 @@ namespace Private {
             // Pause further chunks until the download has started
             Atomics.add(backlog, 0, BACKLOG_LIMIT);
 
-            service_worker.postMessage(
-              {
-                name,
-                url,
-                channel: sw_channel.port2,
-              },
-              [sw_channel.port2]
-            );
+            _enqueueUserDownload(() => {
+              service_worker.postMessage(
+                {
+                  name,
+                  url,
+                  channel: sw_channel.port2,
+                },
+                [sw_channel.port2]
+              );
+
+              return download_ready.then(
+                () => {
+                  const iframe = document.createElement('iframe');
+                  iframe.hidden = true;
+                  iframe.src = url;
+                  document.body.appendChild(iframe);
+
+                  // Resume downloading chunks since the download has now started
+                  Atomics.sub(backlog, 0, BACKLOG_LIMIT);
+                  Atomics.notify(backlog, 0);
+                },
+                () => {
+                  // Resume other downloads since this one was cancelled
+                  Atomics.sub(backlog, 0, BACKLOG_LIMIT);
+                  Atomics.notify(backlog, 0);
+                }
+              );
+            });
           }
         }
 
@@ -407,7 +424,7 @@ namespace Private {
       download.href = URL.createObjectURL(new Blob(chunks));
       download.download = chunkname;
 
-      _enqueueUserDownload(() => {
+      _enqueueUserDownload(async () => {
         // Resume downloading chunks since the download has now started
         Atomics.sub(backlog, 0, BACKLOG_LIMIT);
         Atomics.notify(backlog, 0);
@@ -423,7 +440,7 @@ namespace Private {
   }
 
   /* eslint-disable no-inner-declarations */
-  function _enqueueUserDownload(download: () => void) {
+  function _enqueueUserDownload(download: () => Promise<void>) {
     _download_queue.push(download);
 
     if (!_download_queue_active) {
@@ -440,11 +457,11 @@ namespace Private {
       return;
     }
 
-    downloadFunc();
-
-    setTimeout(
-      () => _processNextDownloadQueueItem(),
-      1000 + Math.random() * 500
+    downloadFunc().then(() =>
+      setTimeout(
+        () => _processNextDownloadQueueItem(),
+        2000 + Math.random() * 1000
+      )
     );
   }
 

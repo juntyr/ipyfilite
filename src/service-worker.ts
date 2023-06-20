@@ -2,14 +2,6 @@
 
 export default null;
 
-self.oninstall = () => {
-  self.skipWaiting();
-};
-
-self.onactivate = (event) => {
-  event.waitUntil(self.clients.claim());
-};
-
 const downloads = new Map();
 
 self.onmessage = (event: MessageEvent) => {
@@ -20,6 +12,9 @@ self.onmessage = (event: MessageEvent) => {
 
   // Notify the client that the download is ready
   event.data.channel.postMessage({ kind: 'ready' });
+
+  // Clean up downloads that were never initiated
+  setTimeout(() => downloads.delete(event.data.url), 40 * 1000);
 };
 
 function createDownloadStream(channel: MessagePort): ReadableStream {
