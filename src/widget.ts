@@ -310,6 +310,10 @@ namespace Private {
                 download_ready_resolve(null);
               } else if (event.data.kind === 'abort') {
                 channel.postMessage({ kind: 'abort' });
+                if (service_worker_channel !== null) {
+                  service_worker_channel.onmessage = null;
+                  service_worker_channel.close();
+                }
                 download_ready_reject(null);
               }
             };
@@ -328,23 +332,20 @@ namespace Private {
                 [sw_channel.port2]
               );
 
-              return download_ready.then(
-                () => {
+              return download_ready
+                .then(() => {
                   const iframe = document.createElement('iframe');
                   iframe.hidden = true;
                   iframe.src = url;
                   document.body.appendChild(iframe);
-
-                  // Resume downloading chunks since the download has now started
+                })
+                .finally(() => {
+                  // Resume downloading chunks since
+                  // (a) the download has now started -> continue this one
+                  // (b) this download has been cancelled -> continue others
                   Atomics.sub(backlog, 0, BACKLOG_LIMIT);
                   Atomics.notify(backlog, 0);
-                },
-                () => {
-                  // Resume other downloads since this one was cancelled
-                  Atomics.sub(backlog, 0, BACKLOG_LIMIT);
-                  Atomics.notify(backlog, 0);
-                }
-              );
+                });
             });
           }
         }
@@ -353,8 +354,12 @@ namespace Private {
           service_worker_channel.postMessage(event.data);
 
           if (event.data.kind === 'close' || event.data.kind === 'abort') {
-            service_worker_channel.onmessage = null;
-            service_worker_channel.close();
+            download_ready.finally(() => {
+              if (service_worker_channel !== null) {
+                service_worker_channel.onmessage = null;
+                service_worker_channel.close();
+              }
+            });
           } else if (event.data.kind === 'chunk') {
             const chunk = new Uint8Array(event.data.chunk);
 
