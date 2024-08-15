@@ -25,8 +25,8 @@ from ipywidgets.widgets.trait_types import InstanceDict
 from ipywidgets.widgets.widget_description import DescriptionWidget
 from traitlets import Bool, Bunch, CaselessStrEnum, Dict, Unicode, default
 
-from ._frontend import module_name, module_version
-from ._manager import IpyfiliteManager
+from .._frontend import module_name, module_version
+from .._manager import IpyfiliteManager
 
 
 def _deserialize_single_file(js):

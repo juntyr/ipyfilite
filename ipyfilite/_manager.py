@@ -24,7 +24,8 @@ class IpyfiliteManager(SingletonConfigurable):
             import pyodide_js  # noqa: F401
         except ImportError:
             warnings.warn(
-                "ipyfilite only works inside a Pyodide kernel in JupyterLite",
+                "ipyfilite is designed to run inside a Pyodide kernel in"
+                " JupyterLite",
                 FutureWarning,
             )
         else:
@@ -152,16 +153,23 @@ class IpyfiliteManager(SingletonConfigurable):
         )
 
     async def register_download(self, uuid: str, name: str) -> Path:
-        # Firefox currently requires async sleeps to fully initialise
-        #  the MessageChannels so that messages can be received
-        await asyncio.sleep(0.001)
-        path = self._download_fs.create_download(
-            self._download_root, uuid, name
-        )
-        await asyncio.sleep(0.0001)
-        return Path(path)
+        if getattr(self, "_download_fs", None) is None:
+            downloads = Path.home() / "Downloads"
+            if not downloads.exists():
+                downloads = Path.cwd()
+            return downloads / f"{name}-{uuid}"
+        else:
+            # Firefox currently requires async sleeps to fully initialise
+            #  the MessageChannels so that messages can be received
+            await asyncio.sleep(0.001)
+            path = self._download_fs.create_download(
+                self._download_root, uuid, name
+            )
+            await asyncio.sleep(0.0001)
+            return Path(path)
 
     async def unregister_download(self, uuid: str, abort: bool):
-        await asyncio.sleep(0.001)
-        self._download_fs.close_download(self._download_root, uuid, abort)
-        await asyncio.sleep(0.001)
+        if getattr(self, "_download_fs", None) is not None:
+            await asyncio.sleep(0.001)
+            self._download_fs.close_download(self._download_root, uuid, abort)
+            await asyncio.sleep(0.001)
