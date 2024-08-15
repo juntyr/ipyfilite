@@ -11,6 +11,7 @@ class FileUploadLite:
     def __init__(self, accept="", multiple=False):
         self.accept = accept
         self.multiple = multiple
+        self.value = tuple()
 
     async def request(self):
         import tkinter as tk
@@ -24,7 +25,9 @@ class FileUploadLite:
         else:
             paths = [filedialog.askopenfilename(accept=self.accept)]
 
-        return [dict(name=Path(path).name, path=Path(path)) for path in paths]
+        self.value = tuple(dict(name=Path(path).name, path=Path(path)) for path in paths)
+
+        return self.value
 
     def close(self):
         pass
