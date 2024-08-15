@@ -8,24 +8,13 @@ from pathlib import Path
 
 
 class FileUploadLite:
-    def __init__(self, accept="", multiple=False):
-        self.accept = accept
-        self.multiple = multiple
+    def __init__(self):
         self.value = tuple()
 
     async def request(self):
-        import tkinter as tk
-        from tkinter import filedialog
+        path = input("Enter filepath:")
 
-        root = tk.Tk()
-        root.withdraw()
-
-        if self.multiple:
-            paths = filedialog.askopenfilenames(accept=self.accept)
-        else:
-            paths = [filedialog.askopenfilename(accept=self.accept)]
-
-        self.value = tuple(dict(name=Path(path).name, path=Path(path)) for path in paths)
+        self.value = (dict(name=Path(path).name, path=Path(path)),)
 
         return self.value
 

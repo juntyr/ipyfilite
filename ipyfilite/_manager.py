@@ -157,7 +157,7 @@ class IpyfiliteManager(SingletonConfigurable):
             downloads = Path.home() / "Downloads"
             if not downloads.exists():
                 downloads = Path.cwd()
-            return downloads / f"{name}-{uuid}"
+            return downloads / f"{Path(name).stem}-{uuid}{Path(name).suffix}"
         else:
             # Firefox currently requires async sleeps to fully initialise
             #  the MessageChannels so that messages can be received
