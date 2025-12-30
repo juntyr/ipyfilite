@@ -22,7 +22,8 @@ class IpyfiliteManager(SingletonConfigurable):
             import js  # noqa: F401
             import pyodide  # noqa: F401
             import pyodide_js  # noqa: F401
-        except ImportError:
+            js.postMessage
+        except (ImportError, AttributeError):
             warnings.warn(
                 "ipyfilite is designed to run inside a Pyodide kernel in"
                 " JupyterLite",
@@ -32,11 +33,11 @@ class IpyfiliteManager(SingletonConfigurable):
             try:
                 backlog = js.SharedArrayBuffer.new(4)
                 self._backlog = js.Int32Array.new(backlog)
-            except Exception:
+            except Exception as err:
                 raise RuntimeError(
                     "ipyfilite must run in a secure and cross-origin isolated"
                     " context"
-                )
+                ) from err
             channel = js.MessageChannel.new()
             self._channel = channel.port1
             self._channel.onmessage = self._on_message

@@ -8,7 +8,8 @@ try:
     import js  # noqa: F401
     import pyodide  # noqa: F401
     import pyodide_js  # noqa: F401
-except ImportError:
+    js.postMessage
+except (ImportError, AttributeError):
     from .native import FileUploadLite  # noqa: F401
 else:
     from .pyodide import FileUploadLite  # noqa: F401
